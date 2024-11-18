@@ -1,0 +1,4 @@
+satıcı adresinde belirtilen simülasyon sonucu thrust(lb)*time(second) grafiği
+https://www.csrocketry.com/rocket-motors/cesaroni/motors/pro-75/5g-reloads/cesaroni-m1670-blue-streak-rocket-motor.html
+thrustcurve detayları
+https://www.thrustcurve.org/motors/Cesaroni/6026M1670-P/

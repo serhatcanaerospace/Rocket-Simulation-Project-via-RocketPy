@@ -1,0 +1,166 @@
+#İlk Adım
+#Gerekli Kütüphaneyi İndiriyorum.....
+###pip install rocketpy
+
+#2.Adım
+#RocketPy kütüphanesinde Simülasyon İçin İhtiyacımız Olan Nesneleri Giriyoruz......
+from rocketpy import Environment, Rocket, SolidMotor, Flight
+
+#3.Adım
+#Çevre Faktörünü Enlem Ve Boylam Olarak Giriyoruz. İleride Google Earth'ten Çıktı Almak İçin Gerekli......
+env = Environment(
+    latitude=37.8670389,
+    longitude=32.4138971,
+)
+#Burada Girmiş Olduğum Koordinatlar Sınıfımızdan Görülebilen Boş Araziyi Göstermektedir.......
+
+#4.Adım
+#Girmiş OLduğumuz Koordinatlara Göre Rakım Bulmak İçin OpenElevation Sitesine Bağlı Kütüphane Fonksiyonumuzu Kullanıyoruz.........
+env.set_elevation('Open-Elevation')
+
+#5.Adım
+#Burada Fırlatma Tarihini Tanımlıyoruz........
+#İleri Düzey Bir Simülasyon İçin Hava durumu İstatistiklerini NetCDF4 belgelerini çalışmamıza entegre edersek....
+#Hava Durumu Tahminlerine Göre Belirli Parametreler Hesaplanıyor.....
+import datetime
+
+tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+
+env.set_date(
+    (tomorrow.year, tomorrow.month, tomorrow.day, 12)
+)  #Aksi Belirtilmediği Taktirde UTC kullanılır.......
+
+env.set_atmospheric_model(type='Forecast', file='GFS')
+
+#6.Adım
+#Tanımladığımız Çevre(Environment) Faktöründe Toplanan Bilgilerin Çıktısını Aldığımız Fonksiyon......
+env.info()
+
+#7.Adım
+#Simülasyon İçin Başta Tanımladığımız SolidMotor ögesinin detaylarını giriyoruz.....
+#Thrustcurve sitesinden aldığım Örnek Cesaroni Pro75M1670 Sıvı Yakıtlı Motorunun Değerlerini Girdim....
+#Burada Bizden İstenen Parametrelere help fonksiyonuyla veya rocketpy sitesinde userguide bölümünden ulaşılabilir.....
+Pro75M1670 = SolidMotor(
+    thrust_source="Cesaroni_M1670.eng", #Seçtiğim Motorun İtme Değerlerini İçeren Dosyayı Gösteriyorum.(Kaynak=Thrustcurve)......
+    dry_mass=1.815,
+    dry_inertia=(0.125, 0.125, 0.002),
+    center_of_dry_mass_position=0.317,
+    grains_center_of_mass_position=0.397,
+    burn_time=3.9,
+    grain_number=5,
+    grain_separation=0.005,
+    grain_density=1815,
+    grain_outer_radius=0.033,
+    grain_initial_inner_radius=0.015,
+    grain_initial_height=0.12,
+    nozzle_radius=0.033,
+    throat_radius=0.011,
+    interpolation_method="linear",
+    nozzle_position=0,
+    coordinate_system_orientation="nozzle_to_combustion_chamber",
+)
+#Değerlerin Türkçelerini De Tanımlayabiliriz Fakat Kütüphane Böyle Tanımlandığı İçin 2 İş Olmasın Diye Değiştirmedim. UserGuide'dan alınmıştır.....
+
+#8.Adım
+#Girdiğim Motorun Belirli Parametrede Grafikleri ve Sadece Motor Gösterimi (Çünkü Rocket ögesini tanımlamadım)......
+Pro75M1670.all_info()
+#Thrust*Time Grafiğini de İçeriyor......
+
+#9.Adım
+#Rocket Ögesini Tanımlıyoruz......
+neurocket = Rocket(
+    radius=0.0635,
+    mass=14.426,  #Burada Dikkat Edilmesi Gereken Nokta henüz calisto.add_motor
+    inertia=(6.321, 6.321, 0.034),
+    power_off_drag="powerOffDragCurve.eng",
+    power_on_drag="powerOnDragCurve.eng",
+    center_of_mass_without_motor=0,
+    coordinate_system_orientation="tail_to_nose",
+)
+#Düğmeleri İşaretliyoruz.....
+buttons = neurocket.set_rail_buttons(
+    upper_button_position=0.0818,
+    lower_button_position=-0.6182,
+    angular_position=45,
+)
+#Yukarıda Tanımladığımız Motoru Rokete Ekliyoruz. Pozisyon Belirterek.....
+neurocket.add_motor(Pro75M1670, position=-1.255)
+#Kütüphanenin Sağladığı Kolaylıktan Yararlanarak Roketin Parçalarını Ekliyoruz Nose,Fins,Parachutes etc.......
+#Örnek Olarak Burun Eklenmesi........
+nose = neurocket.add_nose(
+    length=0.55829, kind="vonKarman", position=1.278
+)
+#Kanat Değerlerini Giriyoruz.......
+fins = neurocket.add_trapezoidal_fins(
+    n=4,
+    root_chord=0.120,
+    tip_chord=0.040,
+    span=0.100,
+    sweep_length=None,
+    cant_angle=0,
+    position=-1.04956,
+)
+#Kuyruk Değerlerini Giriyoruz......
+tail = neurocket.add_tail(
+    top_radius=0.0635, bottom_radius=0.0435, length=0.060, position=-1.194656
+)
+
+#10.Adım
+#Paraşüt Ekleme Kısmı
+main = neurocket.add_parachute(
+    name="main",
+    cd_s=10.0,
+    trigger=800,  # Burada Paraşütün Açılması Gereken Yüksekliği Giriyoruz.....
+    sampling_rate=105,
+    lag=1.5,
+    noise=(0, 8.3, 0.5),
+)
+
+drogue = neurocket.add_parachute( #Birinci Paraşüt Değerleri....
+    name="drogue",
+    cd_s=1.0,
+    trigger="apogee",
+    sampling_rate=105,
+    lag=1.5,
+    noise=(0, 8.3, 0.5),
+)
+#Burada Kısaca Verilen Örnek Paraşüt Değerlerini Kullandım....
+#İndices Bölümünden Paraşütün Sahip OLduğu Denkleme Ekleyebileceğimiz Parametreleri Görebiliriz.Örn Halat Sayısı....
+
+#11.Adım
+#Burada Girdiğim SolidMotor, Rocket, buttons, fins, tail, parachute parametrelerini Elimde Olmadığı İçin RocketPy Examples'dan aldım......
+
+#12.Adım
+#Girdiğimiz RoketinBlgilerini Görebiliyoruz......
+neurocket.all_info()
+
+#13.Adım
+#Test Uçuşu Komutu İle Tanımladığımız Aracı Yine Bizden İstenen Parametrelere Göre Olabilecek Değerleri Hesaplıyoruz......
+test_flight = Flight(
+  rocket=neurocket, environment=env, rail_length=5.2, inclination=85, heading=0
+)
+
+#14.Adım
+#Hesaplanan Test Uçuşu Parametrelerini Çıktı Olarak Alıyoruz all.info()olmadığı için kısıtlı detaysız sonuçları verecek......
+test_flight.info()
+
+#15.Adım
+#Daha Detaylı Uçuş Simülasyonu Çıktıları......
+test_flight.all_info()
+
+#16. ve Son Adım
+#Kütüphanenin Faydalarından Biri De Roketin Simülasyonda İzlediği Yol ile Enlem Boylam Değerlerinin Google Earth İle Görselleştirme Fonksiyonudur.......
+test_flight.export_kml(file_name="test_flight_google_earth_presentation.kml")
+
+#Kodu Çalıştırdıktan Sonra Sırayla Hem Run Kısmmında Hem De Grafikler Olarak Veriler Gelecektir....
+#Diğer Grafik İçin Mevcut Grafiği Kapatmalısınız....
+#44 adet Grafik ve Bunların İçerisinde 2  Tane Çizim Gelecektir......
+#Bu İşlem Biraz Uzun Sürebilir.......
+#Çalışmadığını Düşünebilirsiniz Birkaç Saniye İçerisinde Açılacaktır Grafikler......
+#En Son Kaydedilen kml dosyasını Açmak İçin Bilgisayarınızda GoogleEarth kuruluolması Gerekmektedir.
+#Girilen Koordnatlarda Çekilen Hava Durumu Bilgilerine Göre Roketimizin İzleyeceği Yolu Simüle Etmektedir.
+#Gerekli Dosyalar Bu Belgenin İçerisinde Olduğu Dosyaya Eklenmiştir
+
+
+
+
